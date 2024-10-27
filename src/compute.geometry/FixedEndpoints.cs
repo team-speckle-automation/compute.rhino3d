@@ -9,6 +9,8 @@ using Microsoft.AspNetCore.Routing;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using Rhino.PlugIns;
+using Newtonsoft.Json;
+using Resthopper.IO;
 
 namespace compute.geometry
 {
@@ -21,21 +23,40 @@ namespace compute.geometry
             app.MapGet("servertime", ServerTime);
             app.MapGet("plugins/rhino/installed", GetInstalledPluginsRhino);
             app.MapGet("plugins/gh/installed", GetInstalledPluginsGrasshopper);
-            app.MapGet("speckle", Speckle);
+            app.MapPost("speckle", Speckle);
         }
 
         private static async Task Speckle(HttpContext ctx)
         {
-            var values = new Dictionary<string, string>
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var body = await new System.IO.StreamReader(ctx.Request.Body).ReadToEndAsync();
+            if (body.StartsWith("[") && body.EndsWith("]"))
+                body = body.Substring(1, body.Length - 2);
+
+            if (body.Contains("Nathan"))
+                return;
+
+            var input = JsonConvert.DeserializeObject<Schema>(body);
+
+            Console.WriteLine("Speckle request: " + body);
+
+            // Run the process
+            var process = new System.Diagnostics.Process
             {
-                { "rhino", Rhino.RhinoApp.Version.ToString() },
-                { "compute", Assembly.GetExecutingAssembly().GetName().Version.ToString() }
+                StartInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = @"C:\Users\Nathan.R.Terranova\source\repos\Test\Test\bin\Debug\net8.0\Test.exe",
+                    //RedirectStandardOutput = true,
+                    //UseShellExecute = false,
+                    //CreateNoWindow = false
+                }
             };
-            string git_sha = null; // appveyor will replace this
-            values.Add("git_sha", git_sha);
-            values.Add("speckle", "speckle is the best");
+            process.Start();
+            string result = await process.StandardOutput.ReadToEndAsync();
+            process.WaitForExit();
+
             ctx.Response.ContentType = "application/json";
-            await ctx.Response.WriteAsJsonAsync(values);
+            await ctx.Response.WriteAsJsonAsync(new { body, result });
         }
 
         private static void HomePage(HttpContext context)

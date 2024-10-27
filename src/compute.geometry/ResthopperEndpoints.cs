@@ -25,6 +25,21 @@ namespace compute.geometry
             app.MapPost("/grasshopper", Grasshopper);
             app.MapPost("/io", PostIoNames);
             app.MapGet("/io", GetIoNames);
+            app.MapPost("/test", Test);
+        }
+
+        private static async Task Test(HttpContext ctx)
+        {
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            var body = await new System.IO.StreamReader(ctx.Request.Body).ReadToEndAsync();
+            if (body.StartsWith("[") && body.EndsWith("]"))
+                body = body.Substring(1, body.Length - 2);
+
+            if (!string.IsNullOrEmpty(body))
+            {
+                ctx.Response.ContentType = "application/json";
+                await ctx.Response.WriteAsync(body);
+            }
         }
 
         public static GH_Archive ArchiveFromUrl(string url)
@@ -59,11 +74,11 @@ namespace compute.geometry
             return null;
         }
 
-        static void SetDefaultTolerances(double absoluteTolerance, double angleToleranceDegrees)
+        private static void SetDefaultTolerances(double absoluteTolerance, double angleToleranceDegrees)
         {
             if (absoluteTolerance <= 0 || angleToleranceDegrees <= 0)
                 return;
- 
+
             var utilityType = typeof(Grasshopper.Utility);
             if (utilityType != null)
             {
@@ -72,10 +87,10 @@ namespace compute.geometry
                 {
                     method.Invoke(null, new object[] { absoluteTolerance, angleToleranceDegrees });
                 }
-            }         
+            }
         }
 
-        static void SetDefaultUnits(string modelUnits)
+        private static void SetDefaultUnits(string modelUnits)
         {
             if (String.IsNullOrEmpty(modelUnits))
                 return;
@@ -91,9 +106,9 @@ namespace compute.geometry
             }
         }
 
-        static object _ghsolvelock = new object();
+        private static object _ghsolvelock = new object();
 
-        static string GrasshopperSolveHelper(Schema input, string body, System.Diagnostics.Stopwatch stopwatch, HttpContext ctx)
+        private static string GrasshopperSolveHelper(Schema input, string body, System.Diagnostics.Stopwatch stopwatch, HttpContext ctx)
         {
             // load grasshopper file
             GrasshopperDefinition definition = GrasshopperDefinition.FromUrl(input.Pointer, true);
@@ -133,14 +148,14 @@ namespace compute.geometry
             return returnJson;
         }
 
-        static async Task Grasshopper(HttpContext ctx)
+        private static async Task Grasshopper(HttpContext ctx)
         {
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
             var body = await new System.IO.StreamReader(ctx.Request.Body).ReadToEndAsync();
             if (body.StartsWith("[") && body.EndsWith("]"))
                 body = body.Substring(1, body.Length - 2);
             Schema input = JsonConvert.DeserializeObject<Schema>(body);
-           
+
             if (input.CacheSolve)
             {
                 // look in the cache to see if this has already been solved
@@ -161,7 +176,6 @@ namespace compute.geometry
             }
             else
             {
-
                 // 5 Feb 2021 S. Baer
                 // Throw a lock around the entire solve process for now. I can easily
                 // repeat multi-threaded issues by creating a catenary component with Hops
@@ -182,15 +196,17 @@ namespace compute.geometry
             }
         }
 
-        async Task GetIoNames(HttpContext ctx)
+        private async Task GetIoNames(HttpContext ctx)
         {
             await GetIoNamesHelper(ctx, true);
         }
-        async Task PostIoNames(HttpContext ctx)
+
+        private async Task PostIoNames(HttpContext ctx)
         {
             await GetIoNamesHelper(ctx, true);
         }
-        async Task GetIoNamesHelper(HttpContext ctx, bool asPost)
+
+        private async Task GetIoNamesHelper(HttpContext ctx, bool asPost)
         {
             GrasshopperDefinition definition;
             if (asPost)
@@ -245,8 +261,8 @@ namespace compute.geometry
             rhObj.Type = pt.GetType().FullName;
             rhObj.Data = JsonConvert.SerializeObject(pt, GeometryResolver.Settings(rhinoVersion));
             return rhObj;
-
         }
+
         public static ResthopperObject GetResthopperObject<T>(object goo, int rhinoVersion)
         {
             var v = (T)goo;
@@ -256,9 +272,9 @@ namespace compute.geometry
             rhObj.Data = JsonConvert.SerializeObject(v, GeometryResolver.Settings(rhinoVersion));
             return rhObj;
         }
+
         public static void PopulateParam<DataType>(GH_Param<IGH_Goo> Param, Resthopper.IO.DataTree<ResthopperObject> tree)
         {
-
             foreach (KeyValuePair<string, List<ResthopperObject>> entree in tree)
             {
                 GH_Path path = new GH_Path(GhPath.FromString(entree.Key));
@@ -269,14 +285,12 @@ namespace compute.geometry
                     DataType data = JsonConvert.DeserializeObject<DataType>(obj.Data);
                     Param.AddVolatileData(path, i, data);
                 }
-
             }
-
         }
 
         // strip bom from string -- [239, 187, 191] in byte array == (char)65279
         // https://stackoverflow.com/a/54894929/1902446
-        static string StripBom(string str)
+        private static string StripBom(string str)
         {
             if (!string.IsNullOrEmpty(str) && str[0] == (char)65279)
                 str = str.Substring(1);
@@ -292,8 +306,6 @@ namespace System.Exceptions
     {
         public PayAttentionException(string m) : base(m)
         {
-
         }
-
     }
 }
